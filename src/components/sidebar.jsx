@@ -7,9 +7,10 @@ import {
   Briefcase,
   Map,
   Mic2,
-  BarChart3,
   Settings,
   Sparkles,
+  Search,
+  FileEdit,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -20,9 +21,10 @@ const Sidebar = () => {
     { name: "Dashboard", icon: LayoutDashboard, path: "/Dashboard" },
     { name: "Resume Analyzer", icon: FileText, path: "/ResumeAnalyzer" },
     { name: "Job Matches", icon: Briefcase, path: "/Jobs" },
+    { name: "find jobs", icon: Search, path: "/analytics" },
+    { name: "Resume Builder", icon: FileEdit, path: "/analytics" },
     { name: "Skill Roadmap", icon: Map, path: "/roadmap" },
     { name: "Interview", icon: Mic2, path: "/Interview" },
-    { name: "Analytics", icon: BarChart3, path: "/analytics" },
     { name: "Settings", icon: Settings, path: "/settings" },
   ];
 
