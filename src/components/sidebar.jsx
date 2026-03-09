@@ -11,7 +11,9 @@ import {
   Sparkles,
   Search,
   FileEdit,
+  Trophy,
   PanelLeft
+
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -34,16 +36,17 @@ const Sidebar = () => {
     );
   }, []);
 
-  const navItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/Dashboard" },
-    { name: "Resume Analyzer", icon: FileText, path: "/ResumeAnalyzer" },
-    { name: "Job Matches", icon: Briefcase, path: "/Jobs" },
-    { name: "Find Jobs", icon: Search, path: "/Find_jobs" },
-    { name: "Resume Builder", icon: FileEdit, path: "/ResumeBuilder" },
-    { name: "Skill Roadmap", icon: Map, path: "/Roadmap" },
-    { name: "Interview", icon: Mic2, path: "/Interview" },
-    { name: "Profile", icon: User, path: "/profile" },
-  ];
+ const navItems = [
+  { name: "Dashboard", icon: LayoutDashboard, path: "/Dashboard" },
+  { name: "Resume Analyzer", icon: FileText, path: "/ResumeAnalyzer" },
+  { name: "Job Matches", icon: Briefcase, path: "/Jobs" },
+  { name: "Find Jobs", icon: Search, path: "/Find_jobs" },
+  { name: "Resume Builder", icon: FileEdit, path: "/ResumeBuilder" },
+  { name: "Skill Roadmap", icon: Map, path: "/Roadmap" },
+  { name: "Interview", icon: Mic2, path: "/Interview" },
+  { name: "Profile", icon: User, path: "/profile" },
+  { name: "Leaderboard", icon: Trophy, path: "/leaderboard" }
+];
 
   return (
 <motion.aside

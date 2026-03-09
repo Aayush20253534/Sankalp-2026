@@ -173,7 +173,10 @@ const ProfilePage = () => {
     <div className="min-h-screen bg-[#050b14] text-gray-300 selection:bg-blue-500/30">
       <Sidebar />
       
-      <main className="lg:ml-64 p-4 md:p-8">
+      <main
+  style={{ marginLeft: "var(--sidebar-width)" }}
+  className="flex-1 flex flex-col overflow-y-auto p-4 md:p-8"
+>
         <div className="max-w-6xl mx-auto pt-4 pb-20">
           
           <ProfileHeader user={user} />

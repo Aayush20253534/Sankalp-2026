@@ -9,6 +9,7 @@ import FindJobs from "./pages/Find_jobs";
 import ResumeBuilder from "./pages/ResumeBuilder";
 import SkillRoadmap from "./pages/Roadmap";
 import ProfilePage from "./pages/profile";
+import LeaderboardPage from "./pages/leaderboard";
 
 
 
@@ -96,6 +97,15 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/leaderboard"
+        element={
+          <ProtectedRoute>
+            <LeaderboardPage/>
+          </ProtectedRoute>
+        }
+      />
+
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
