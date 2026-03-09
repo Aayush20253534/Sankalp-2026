@@ -56,28 +56,12 @@ prompt = ChatPromptTemplate.from_messages([
 
 chain = prompt | structured_llm
 
-#========TESTING========
-job_description = """
-Senior Full Stack Developer at TechFlow Solutions. 
-Requirements: 5+ years experience. Expert in Python and TypeScript. 
-Frameworks: React.js, Tailwind CSS, Node.js, PostgreSQL. 
-Tools: AWS (EC2, S3), Docker. 
-Must have experience leading small teams and performing code reviews.
-"""
-
-resume_text = """
-Alex Rivera - Software Engineer with 6 years experience.
-Roles: CloudScale Systems (3.2 yrs), Creative Pulse Agency (2.5 yrs).
-Skills: Python, JavaScript, React, Node.js, Docker, AWS, PostgreSQL, Django.
-Achievements: Led developer team for dashboard migration, 
-managed deployments on AWS EC2, conducted weekly code reviews.
-"""
-
-# Invoke the chain
-result = chain.invoke({
-    "job_description": job_description, 
-    "candidate_resume": resume_text
-})
-
-# Access the Pydantic object or print as JSON
-print(result.model_dump_json(indent=2))
+def get_ats_score(resume_text: str, job_description: str) -> ATSOutput:
+    """
+    Analyzes a resume against a job description and returns an ATSOutput object.
+    """
+    result = chain.invoke({
+        "job_description": job_description, 
+        "candidate_resume": resume_text
+    })
+    return result 
