@@ -30,15 +30,12 @@ function App() {
   return (
     <Routes>
 
-      {/* Landing page */}
       <Route path="/" element={<LandingPage />} />
 
-      {/* Auth pages */}
       <Route path="/login" element={<Login />} />
 
-      {/* Protected routes */}
       <Route
-        path="/dashboard"
+        path="/Dashboard"
         element={
           <ProtectedRoute>
             <Dashboard />
@@ -47,7 +44,7 @@ function App() {
       />
 
       <Route
-        path="/resume-analyzer"
+        path="/ResumeAnalyzer"
         element={
           <ProtectedRoute>
             <ResumeAnalyzer />
@@ -65,7 +62,7 @@ function App() {
       />
 
       <Route
-        path="/interview"
+        path="/Interview"
         element={
           <ProtectedRoute>
             <Interview />
@@ -74,7 +71,7 @@ function App() {
       />
 
       <Route
-        path="/find-jobs"
+        path="/Find_jobs"
         element={
           <ProtectedRoute>
             <FindJobs />
@@ -83,7 +80,7 @@ function App() {
       />
 
       <Route
-        path="/resume-builder"
+        path="/ResumeBuilder"
         element={
           <ProtectedRoute>
             <ResumeBuilder />
@@ -92,7 +89,7 @@ function App() {
       />
 
       <Route
-        path="/roadmap"
+        path="/Roadmap"
         element={
           <ProtectedRoute>
             <SkillRoadmap />
@@ -118,7 +115,6 @@ function App() {
         }
       />
 
-      {/* Unknown route */}
       <Route path="*" element={<Navigate to="/" replace />} />
 
     </Routes>
