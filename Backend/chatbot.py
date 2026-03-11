@@ -71,12 +71,12 @@ class PersistentChatbot:
 # --- 7. USAGE EXAMPLE ---
 
 # Initialize the Chatbot Instance once
-bot = PersistentChatbot()
+# bot = PersistentChatbot()
 
-# Create a session for a specific user
-my_session = bot.generate_session_id()
+# # Create a session for a specific user
+# my_session = bot.generate_session_id()
 
-# Interactions
-print("AI:", bot.ask("Hi! My name is Prateek.", session_id=my_session))
-print("AI:", bot.ask("What is my name?", session_id=my_session))
-print("AI:", bot.ask("Comment ça va?", session_id=my_session, language="French"))
+# # Interactions
+# print("AI:", bot.ask("Hi! My name is Prateek.", session_id=my_session))
+# print("AI:", bot.ask("What is my name?", session_id=my_session))
+# print("AI:", bot.ask("Comment ça va?", session_id=my_session, language="French"))

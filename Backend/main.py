@@ -11,6 +11,7 @@ import shutil
 import uuid
 import os
 
+from chatbot_service import ask_bot
 from web_scraping import LinkedInScraper, NaukriScraper, SerpApiScraper
 
 app = FastAPI()
@@ -70,6 +71,8 @@ class JobSearchRequest(BaseModel):
     location: str
     sources: List[str]
 
+class ChatRequest(BaseModel):
+    message: str
 
 # ---------------- PASSWORD UTILS ---------------- #
 
@@ -204,17 +207,30 @@ async def upload_resume(file: UploadFile = File(...)):
 
     file_ext = file.filename.split(".")[-1]
     unique_name = f"{uuid.uuid4()}.{file_ext}"
-
     file_path = os.path.join(UPLOAD_DIR, unique_name)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     return {
-        "filename": file.filename,
-        "message": "File uploaded successfully"
+        "ats_score": 82,
+        "strengths": [
+            "Strong React + Node stack",
+            "Quantified project achievements"
+        ],
+        "weaknesses": [
+            "Missing cloud infrastructure",
+            "No CI/CD references"
+        ],
+        "missing_keywords": [
+            "Docker",
+            "Kubernetes",
+            "Redis"
+        ],
+        "suggestions": [
+            "Add project metrics like performance improvements"
+        ]
     }
-
 
 # ---------------- JOB SEARCH ---------------- #
 
@@ -274,3 +290,18 @@ def get_jobs():
         print("Job fetch error:", e)
 
     return {"jobs": jobs}   
+
+@app.post("/ai/chat")
+def chat_ai(
+    data: ChatRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+
+    token = credentials.credentials
+    user_id = verify_token(token)
+    print(user_id, data.message)
+    response = ask_bot(user_id, data.message)
+
+    return {
+        "reply": response
+    }
