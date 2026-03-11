@@ -8,3 +8,4 @@ langgraph
 apify_client
 urllib
 langchain-google-genai
+pdf2image
