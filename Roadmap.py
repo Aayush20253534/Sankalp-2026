@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage , SystemMessage
 from langchain_tavily import TavilySearch
 load_dotenv()
