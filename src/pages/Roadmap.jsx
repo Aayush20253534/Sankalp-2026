@@ -104,15 +104,64 @@ const SkillRoadmap = () => {
     localStorage.setItem('skill_roadmap_data', JSON.stringify(newData));
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const res = await axios.post("http://127.0.0.1:8000/roadmap", {
+        topic: role,
+        limit: 5
+      });
+
+      const data = res.data;
+
+      const formatted = [
+        {
+          id: 1,
+          title: "Foundations",
+          duration: "4 Weeks",
+          progress: 0,
+          skills: data.basic.map(c => ({
+            name: c.title,
+            difficulty: c.toughness,
+            status: "Not Started",
+            url: c.learning_link
+          }))
+        },
+        {
+          id: 2,
+          title: "Core Skills",
+          duration: "8 Weeks",
+          progress: 0,
+          skills: data.core.map(c => ({
+            name: c.title,
+            difficulty: c.toughness,
+            status: "Not Started",
+            url: c.learning_link
+          }))
+        },
+        {
+          id: 3,
+          title: "Advanced Topics",
+          duration: "6 Weeks",
+          progress: 0,
+          skills: data.advanced.map(c => ({
+            name: c.title,
+            difficulty: c.toughness,
+            status: "Not Started",
+            url: c.learning_link
+          }))
+        }
+      ];
+
+      setRoadmapData(formatted);
       setShowRoadmap(true);
-      setRoadmapData(INITIAL_DATA);
-      localStorage.setItem('skill_roadmap_data', JSON.stringify(INITIAL_DATA));
-      localStorage.setItem('skill_roadmap_visible', 'true');
-    }, 1500);
+
+    } catch (err) {
+      console.error(err);
+    }
+
+    setLoading(false);
   };
 
   const downloadRoadmap = async () => {

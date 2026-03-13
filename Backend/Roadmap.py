@@ -81,6 +81,3 @@ class Roadmap:
 
         return response.model_dump()
 
-#Usage Example - 
-R = Roadmap()
-print(R.generate_roadmap(topic = "Software Devlopment"))
