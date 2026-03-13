@@ -12,6 +12,9 @@ import ResumeBuilder from "./pages/ResumeBuilder";
 import SkillRoadmap from "./pages/Roadmap";
 import ProfilePage from "./pages/profile";
 import LeaderboardPage from "./pages/leaderboard";
+import AboutPage from "./components/About";
+import LegalPage from "./components/Policy";
+import PlatformPage from "./components/Platform";
 
 
 const ProtectedRoute = ({ children }) => {
@@ -33,6 +36,12 @@ function App() {
       <Route path="/" element={<LandingPage />} />
 
       <Route path="/login" element={<Login />} />
+
+      <Route path="/about" element={<AboutPage />} />
+
+      <Route path="/legal" element={<LegalPage />} />
+
+      <Route path="/platform" element={<PlatformPage />} />
 
       <Route
         path="/Dashboard"
