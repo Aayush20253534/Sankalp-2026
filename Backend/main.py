@@ -47,6 +47,10 @@ class MarketReadiness(BaseModel):
 
 structured_llm = llm.with_structured_output(MarketReadiness)
 
+def get_db():
+    conn = sqlite3.connect("users.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 
 async def analyze_resume(pdf_bytes: bytes, target_role: str):
 
@@ -97,8 +101,7 @@ app.add_middleware(
 )
 
 # ---------------- DATABASE ---------------- #
-
-conn = sqlite3.connect("users.db", check_same_thread=False)
+conn = get_db()
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -248,12 +251,16 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     token = credentials.credentials
     email = verify_token(token)
 
+    conn = get_db()
+    cursor = conn.cursor()
+
     cursor.execute(
-    "SELECT name, linkedin, email, market_readiness, skills FROM users WHERE email = ?",
-    (email,)
-)
+        "SELECT name, linkedin, email, market_readiness, skills FROM users WHERE email = ?",
+        (email,)
+    )
 
     user = cursor.fetchone()
+    conn.close()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -312,13 +319,6 @@ async def upload_resume(
         cursor.execute(
             "UPDATE users SET market_readiness = ?, skills = ? WHERE email = ?",
             (report["market_readiness"], json.dumps(report["skills"]), email)
-        )
-        conn.commit()
-
-        # update user's market readiness
-        cursor.execute(
-            "UPDATE users SET market_readiness = ? WHERE email = ?",
-            (report["market_readiness"], email)
         )
         conn.commit()
 
@@ -433,3 +433,6 @@ def submit_answer(data: InterviewAnswer):
     return {
         "analysis": result
     }
+
+conn.commit()
+conn.close()
