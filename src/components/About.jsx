@@ -228,8 +228,8 @@ useEffect(() => {
 
 </div>
         </motion.div>
-
         <motion.form {...fadeIn} className={`${glassStyle} p-8 space-y-4`}>
+           <h1 className="text-4xl text-center font-bold mb-4">Contact Us</h1>
           <div className="grid md:grid-cols-2 gap-4">
             <input type="text" placeholder="Name" className="bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-blue-500 transition-colors w-full" />
             <input type="email" placeholder="Email" className="bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-blue-500 transition-colors w-full" />

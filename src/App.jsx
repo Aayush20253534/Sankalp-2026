@@ -61,14 +61,14 @@ function App() {
         }
       />
 
-      <Route
+      {/* <Route
         path="/jobs"
         element={
           <ProtectedRoute>
             <JobMatchesPage />
           </ProtectedRoute>
         }
-      />
+      /> */}
 
       <Route
         path="/Interview"
@@ -79,14 +79,14 @@ function App() {
         }
       />
 
-      <Route
+       <Route
         path="/Find_jobs"
         element={
           <ProtectedRoute>
             <FindJobs />
           </ProtectedRoute>
         }
-      />
+      /> 
 
       <Route
         path="/ResumeBuilder"
@@ -114,7 +114,7 @@ function App() {
           </ProtectedRoute>
         }
       />
-
+{/* 
       <Route
         path="/leaderboard"
         element={
@@ -122,7 +122,7 @@ function App() {
             <LeaderboardPage />
           </ProtectedRoute>
         }
-      />
+      /> */}
 
       <Route path="*" element={<Navigate to="/" replace />} />
 
