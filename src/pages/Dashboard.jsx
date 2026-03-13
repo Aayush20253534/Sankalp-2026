@@ -83,14 +83,18 @@ export default function CareerDashboard() {
       });
   }, [navigate]);
 
-  const askAI = async () => {
-    if (!prompt.trim()) return;
+  const askAI = async (customPrompt) => {
+    const activePrompt = customPrompt || prompt;
+    if (!activePrompt.trim()) return;
+    
     const token = localStorage.getItem("token");
     setLoadingAI(true);
+    setAiReply("");
+    
     try {
       const res = await axios.post(
         "http://127.0.0.1:8000/ai/chat",
-        { message: prompt },
+        { message: activePrompt },
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -104,8 +108,52 @@ export default function CareerDashboard() {
     setLoadingAI(false);
   };
 
+  const formatAiReply = (text) => {
+    if (!text) return null;
+    let listCounter = 0;
+    
+    return text.split('\n').map((line, i) => {
+      let processedLine = line.trim();
+      
+      if (processedLine.startsWith('+')) {
+        const letter = String.fromCharCode(97 + (listCounter % 26)); 
+        processedLine = `${letter}) ${processedLine.substring(1).trim()}`;
+        listCounter++;
+      }
+
+      const parts = processedLine.split(/(\*\*.*?\*\*)/g);
+      return (
+        <div key={i} className={i !== 0 ? "mt-2" : ""}>
+          {parts.map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={j} className="text-white font-bold">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
+        </div>
+      );
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#050b14] text-slate-200 flex font-sans selection:bg-blue-500/30">
+      <style>{`
+        .custom-dark-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-dark-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 10px;
+        }
+        .custom-dark-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+        .custom-dark-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
+      
       <Sidebar />
 
       <main
@@ -115,8 +163,8 @@ export default function CareerDashboard() {
         <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full relative z-10">
-
+        <div className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full relative z-10 custom-dark-scrollbar">
+          
           <section className="mb-10 flex justify-between items-end">
             <div>
               <motion.div
@@ -162,7 +210,6 @@ export default function CareerDashboard() {
           </section>
 
           <div className="grid lg:grid-cols-12 gap-8">
-
             <div className="lg:col-span-4 flex flex-col gap-8">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
                 <h3 className="text-sm font-semibold text-white mb-6 flex items-center justify-between">
@@ -215,17 +262,12 @@ export default function CareerDashboard() {
                   </div>
                 </div>
                 <div className="w-full space-y-4">
-
                   {(!user?.skills || user.skills.length === 0) ? (
-
                     <div className="text-center text-slate-400 text-sm py-8">
                       Upload a resume to generate your skill breakdown
                     </div>
-
                   ) : (
-
                     user.skills.map((skill, index) => (
-
                       <div
                         key={index}
                         className="flex justify-between items-center p-4 bg-cyan-400/10 border border-cyan-400/20 rounded-2xl backdrop-blur-sm transition-transform hover:scale-[1.02]"
@@ -233,17 +275,12 @@ export default function CareerDashboard() {
                         <span className="text-[11px] font-bold text-white uppercase tracking-wider">
                           {skill}
                         </span>
-
                         <span className="text-[10px] font-black uppercase tracking-tighter text-cyan-400">
                           detected
                         </span>
-
                       </div>
-
                     ))
-
                   )}
-
                 </div>
 
                 <button className="mt-8 w-full py-4 bg-white text-[#050b14] hover:bg-emerald-400 transition-colors rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/10">
@@ -261,14 +298,20 @@ export default function CareerDashboard() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">AI Copilot</h3>
                 </div>
                 <div className="space-y-3">
-                  <button
-                    onClick={() => setPrompt("Optimize my resume for Stripe")}
+                  <button 
+                    onClick={() => {
+                      setPrompt("Optimize my resume for Stripe");
+                      askAI("Optimize my resume for Stripe");
+                    }}
                     className="w-full text-left p-3 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-white/10 transition-all text-xs text-slate-300"
                   >
                     Optimize my resume for Stripe
                   </button>
-                  <button
-                    onClick={() => setPrompt("What skills am I missing for Lead roles?")}
+                  <button 
+                    onClick={() => {
+                      setPrompt("What skills am I missing for Lead roles?");
+                      askAI("What skills am I missing for Lead roles?");
+                    }}
                     className="w-full text-left p-3 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-white/10 transition-all text-xs text-slate-300"
                   >
                     What skills am I missing for Lead roles?
@@ -285,17 +328,25 @@ export default function CareerDashboard() {
                       className="w-full bg-black/40 border border-white/10 rounded-xl py-3.5 px-4 text-xs focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-slate-600"
                     />
                     {loadingAI && (
-                      <p className="text-xs text-slate-500 mt-2">AI is thinking...</p>
+                      <p className="text-xs text-slate-500 mt-2 flex items-center gap-2">
+                        <motion.span 
+                          animate={{ rotate: 360 }}
+                          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                        >
+                          <Zap size={12} className="text-blue-400" />
+                        </motion.span>
+                        AI is thinking...
+                      </p>
                     )}
                     {aiReply && (
-                      <div className="mt-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-slate-300">
-                        {aiReply}
+                      <div className="mt-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-slate-300 max-h-48 overflow-y-auto custom-dark-scrollbar">
+                        {formatAiReply(aiReply)}
                       </div>
                     )}
                     <ArrowUpRight
                       size={14}
-                      onClick={askAI}
-                      className="absolute right-3 top-[28px] text-slate-500 cursor-pointer"
+                      onClick={() => askAI()}
+                      className="absolute right-3 top-[28px] text-slate-500 hover:text-blue-400 cursor-pointer transition-colors"
                     />
                   </div>
                 </div>
@@ -311,7 +362,7 @@ export default function CareerDashboard() {
                   </div>
                 </div>
                 <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                  <CheckCircle2 size={24} className="text-emerald-400" />
+                  <span className="text-emerald-400"><CheckCircle2 size={24} /></span>
                 </div>
               </div>
 
@@ -324,7 +375,6 @@ export default function CareerDashboard() {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </main>

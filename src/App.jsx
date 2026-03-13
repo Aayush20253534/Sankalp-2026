@@ -12,6 +12,9 @@ import ResumeBuilder from "./pages/ResumeBuilder";
 import SkillRoadmap from "./pages/Roadmap";
 import ProfilePage from "./pages/profile";
 import LeaderboardPage from "./pages/leaderboard";
+import AboutPage from "./components/About";
+import LegalPage from "./components/Policy";
+import PlatformPage from "./components/Platform";
 
 
 const ProtectedRoute = ({ children }) => {
@@ -34,6 +37,12 @@ function App() {
 
       <Route path="/login" element={<Login />} />
 
+      <Route path="/about" element={<AboutPage />} />
+
+      <Route path="/legal" element={<LegalPage />} />
+
+      <Route path="/platform" element={<PlatformPage />} />
+
       <Route
         path="/Dashboard"
         element={
@@ -52,14 +61,14 @@ function App() {
         }
       />
 
-      <Route
+      {/* <Route
         path="/jobs"
         element={
           <ProtectedRoute>
             <JobMatchesPage />
           </ProtectedRoute>
         }
-      />
+      /> */}
 
       <Route
         path="/Interview"
@@ -70,14 +79,14 @@ function App() {
         }
       />
 
-      <Route
+       <Route
         path="/Find_jobs"
         element={
           <ProtectedRoute>
             <FindJobs />
           </ProtectedRoute>
         }
-      />
+      /> 
 
       <Route
         path="/ResumeBuilder"
@@ -105,7 +114,7 @@ function App() {
           </ProtectedRoute>
         }
       />
-
+{/* 
       <Route
         path="/leaderboard"
         element={
@@ -113,7 +122,7 @@ function App() {
             <LeaderboardPage />
           </ProtectedRoute>
         }
-      />
+      /> */}
 
       <Route path="*" element={<Navigate to="/" replace />} />
 
