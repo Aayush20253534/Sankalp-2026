@@ -332,7 +332,7 @@ setCoverImage(res.data.cover_image)
               </div>
 
               <div className="mb-4">
-                <h1 className="text-3xl font-bold text-white mb-2">{user?.name || "Alex Rivest"}</h1>
+                <h1 className="text-3xl font-bold text-white mb-2">{username}</h1>
                 <div className="inline-flex flex-col gap-2 p-4 rounded-2xl bg-[#0f172a] border border-blue-500/40 shadow-xl">
                   <p className="text-blue-400 font-bold text-sm flex items-center gap-2">
                     <Code size={14} /> {user?.role || "Senior Professional"}

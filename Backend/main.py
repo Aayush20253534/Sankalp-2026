@@ -224,7 +224,7 @@ def signup(data: SignupRequest):
     hashed = hash_password(data.password)
 
     cursor.execute(
-        "INSERT INTO users (name, linkedin, email, password) VALUES (?, ?, ?, ?)",
+        "INSERT INTO users (username, linkedin, email, password) VALUES (?, ?, ?, ?)",
         (data.name, data.linkedin, data.email, hashed)
     )
 
@@ -522,36 +522,37 @@ def search_jobs(data: JobSearchRequest):
 
 @app.get("/jobs")
 def get_jobs():
+    # raise RuntimeError
 
-    linkedin = LinkedInScraper()
-    naukri = NaukriScraper()
-    web = SerpApiScraper()
+#     linkedin = LinkedInScraper()
+#     naukri = NaukriScraper()
+#     web = SerpApiScraper()
 
-    jobs = []
+#     jobs = []
 
-    try:
-        linkedin_jobs = linkedin.fetch_jobs("", "India")
-        if isinstance(linkedin_jobs, list):
-            for j in linkedin_jobs:
-                j["source"] = "LinkedIn"
-                jobs.append(j)
+#     try:
+#         linkedin_jobs = linkedin.fetch_jobs("", "India")
+#         if isinstance(linkedin_jobs, list):
+#             for j in linkedin_jobs:
+#                 j["source"] = "LinkedIn"
+#                 jobs.append(j)
 
-        naukri_jobs = naukri.fetch_jobs("", "India")
-        if isinstance(naukri_jobs, list):
-            for j in naukri_jobs:
-                j["source"] = "Naukri"
-                jobs.append(j)
+#         naukri_jobs = naukri.fetch_jobs("", "India")
+#         if isinstance(naukri_jobs, list):
+#             for j in naukri_jobs:
+#                 j["source"] = "Naukri"
+#                 jobs.append(j)
 
-        web_jobs = web.fetch_jobs("", "India")
-        if isinstance(web_jobs, list):
-            for j in web_jobs:
-                j["source"] = "Web"
-                jobs.append(j)
+#         web_jobs = web.fetch_jobs("", "India")
+#         if isinstance(web_jobs, list):
+#             for j in web_jobs:
+#                 j["source"] = "Web"
+#                 jobs.append(j)
 
-    except Exception as e:
-        print("Job fetch error:", e)
+#     except Exception as e:
+#         print("Job fetch error:", e)
 
-    return {"jobs": jobs}   
+    return "Search to get job results"   
 
 @app.post("/ai/chat")
 def chat_ai(
