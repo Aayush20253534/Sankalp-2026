@@ -233,41 +233,6 @@ const ProfilePage = () => {
       .catch(err => console.log(err));
   }, []);
 
-  const uploadProfile = async (file) => {
-    const token = localStorage.getItem("token");
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await axios.post(
-      "http://127.0.0.1:8000/profile/upload-image",
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data"
-        }
-      }
-    );
-
-    setImage(res.data.profile_image);
-  };
-
-  const uploadCover = async (file) => {
-    const token = localStorage.getItem("token")
-
-    const formData = new FormData()
-    formData.append("file", file)
-
-    const res = await axios.post(
-      "http://127.0.0.1:8000/profile/upload-cover",
-      formData,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-
-    setCoverImage(res.data.cover_image)
-  }
-
   const handleImageChange = (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
