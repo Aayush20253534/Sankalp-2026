@@ -308,7 +308,6 @@ async def upload_resume(
         # run AI resume analysis
         report = await analyze_resume(contents, target_job)
 
-        report = await analyze_resume(contents, target_job)
 
         cursor.execute(
             "UPDATE users SET market_readiness = ?, skills = ? WHERE email = ?",
