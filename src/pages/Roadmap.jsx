@@ -10,41 +10,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import Sidebar from '../components/sidebar';
 
-const INITIAL_DATA = [
-  {
-    id: 1,
-    title: "Foundations",
-    duration: "4 Weeks",
-    progress: 0,
-    skills: [
-      { name: "Python", difficulty: "Easy", time: "10h", status: "Not Started", url: "https://docs.python.org/3/" },
-      { name: "Linear Algebra", difficulty: "Medium", time: "15h", status: "Not Started", url: "https://www.khanacademy.org/math/linear-algebra" },
-      { name: "Probability", difficulty: "Medium", time: "12h", status: "Not Started", url: "https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/" },
-    ]
-  },
-  {
-    id: 2,
-    title: "Core Skills",
-    duration: "8 Weeks",
-    progress: 0,
-    skills: [
-      { name: "Machine Learning", difficulty: "Hard", time: "40h", status: "Not Started", url: "https://scikit-learn.org/" },
-      { name: "Deep Learning", difficulty: "Hard", time: "50h", status: "Not Started", url: "https://www.deeplearning.ai/" },
-      { name: "PyTorch", difficulty: "Medium", time: "30h", status: "Not Started", url: "https://pytorch.org/docs/" },
-    ]
-  },
-  {
-    id: 3,
-    title: "Advanced Topics",
-    duration: "6 Weeks",
-    progress: 0,
-    skills: [
-      { name: "LLMs", difficulty: "Hard", time: "25h", status: "Not Started", url: "https://huggingface.co/learn/nlp-course/" },
-      { name: "Transformers", difficulty: "Hard", time: "20h", status: "Not Started", url: "https://arxiv.org/abs/1706.03762" },
-      { name: "MLOps", difficulty: "Medium", time: "20h", status: "Not Started", url: "https://ml-ops.org/" },
-    ]
-  }
-];
 
 const ROLE_SKILLS = {
   "AI Engineer": ["Python", "PyTorch", "Transformers", "MLOps", "Deep Learning"],
@@ -72,7 +37,8 @@ const SkillRoadmap = () => {
     if (location.state?.role) {
       setRole(location.state.role);
     }
-  }, [location.state]);
+  }, [location.state])
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -81,22 +47,24 @@ const SkillRoadmap = () => {
     }
 
 
-    axios.get("http://127.0.0.1:8000/me", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => setUser(res.data))
-      .catch(err => console.error(err));
+ axios.get("http://127.0.0.1:8000/me", {
+  headers: { Authorization: `Bearer ${token}` }
+})
+.then(res => setUser(res.data))
+.catch(err => console.error(err));
 
-    const cachedRoadmap = localStorage.getItem('skill_roadmap_data');
-    const cachedVisibility = localStorage.getItem('skill_roadmap_visible');
-
-    if (cachedRoadmap) {
-      setRoadmapData(JSON.parse(cachedRoadmap));
-    }
-    if (cachedVisibility === 'true') {
-      setShowRoadmap(true);
-    }
+axios.get("http://127.0.0.1:8000/roadmap/user", {
+  headers: { Authorization: `Bearer ${token}` }
+})
+.then(res => {
+  if (res.data && res.data.roadmap) {
+    setRoadmapData(res.data.roadmap);
+    setShowRoadmap(true);
+  }
+})
+.catch(() => {});
   }, [navigate]);
+
   useEffect(() => {
     if (location.state?.role && !showRoadmap && role.trim() !== "") {
       handleGenerate();
@@ -117,7 +85,6 @@ const SkillRoadmap = () => {
     });
 
     setRoadmapData(newData);
-    localStorage.setItem('skill_roadmap_data', JSON.stringify(newData));
     const token = localStorage.getItem("token");
 
     axios.post(
@@ -232,9 +199,6 @@ const SkillRoadmap = () => {
       setRoadmapData(formatted);
       setShowRoadmap(true);
 
-      localStorage.setItem('skill_roadmap_data', JSON.stringify(formatted));
-      localStorage.setItem('skill_roadmap_visible', 'true');
-
     } catch (err) {
       console.error(err);
     }
@@ -253,7 +217,6 @@ const SkillRoadmap = () => {
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    localStorage.setItem("roadmap_role", role);
     const fileRole = role ? role.replace(/\s+/g, "_") : "Career";
     pdf.save(`${fileRole}_Roadmap.pdf`);
   };

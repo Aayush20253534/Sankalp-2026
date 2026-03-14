@@ -566,7 +566,26 @@ async def upload_cover_image(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+@app.get("/roadmap/user")
+def get_user_roadmap(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    email = verify_token(credentials.credentials)
 
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT roadmap FROM users WHERE email=?", (email,))
+    row = cursor.fetchone()
+
+    conn.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    roadmap = json.loads(row["roadmap"]) if row["roadmap"] else []
+
+    return {"roadmap": roadmap}
 
 @app.post("/upload-resume")
 async def analyze_uploaded_resume(
