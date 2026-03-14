@@ -63,7 +63,17 @@ export default function CareerDashboard() {
   const [loadingAI, setLoadingAI] = useState(false);
   const navigate = useNavigate();
   const milestone = user?.next_milestone;
+  const roadmap = user?.roadmap || [];
 
+  const allSkills = roadmap.flatMap(stage => stage.skills || []);
+
+  const totalCompleted =
+    allSkills.filter(skill => skill.status === "Completed").length;
+
+  const progress =
+    allSkills.length > 0
+      ? Math.round((totalCompleted / allSkills.length) * 100)
+      : 0;
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
@@ -224,11 +234,19 @@ export default function CareerDashboard() {
                         {milestone?.skill || "Generate a roadmap"}
                       </span> to progress your roadmap.
                     </div>
+                    <div className="text-[10px] text-slate-400 mb-1">
+                      {progress}% Complete
+                    </div>
                     <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} transition={{ duration: 1.5 }} className="h-full bg-blue-500 rounded-full" />
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 1.2 }}
+                        className="h-full bg-blue-500 rounded-full"
+                      />
                     </div>
                   </div>
-                  
+
                 </div>
               </div>
 
