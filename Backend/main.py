@@ -21,7 +21,7 @@ from pydantic import Field
 from fastapi import Form
 from fastapi.staticfiles import StaticFiles
 
-from interview_ai import generate_question, evaluate_answer
+from interview_ai import generate_question, evaluate_answer, analyze_video
 from models import InterviewStart, InterviewAnswer
 
 from chatbot_service import ask_bot
@@ -754,17 +754,31 @@ def chat_ai(
         "reply": response
     }
 
+INTERVIEW_SESSIONS = {}
 @app.post("/interview/start")
 def start_interview(data: InterviewStart):
+
+    session_id = str(uuid.uuid4())
 
     question = generate_question(
         role=data.role,
         difficulty=data.difficulty
     )
 
-    return {
-        "question": question
+    INTERVIEW_SESSIONS[session_id] = {
+        "role": data.role,
+        "difficulty": data.difficulty,
+        "question_number": 1,
+        "questions": [question],
+        "answers": []
     }
+
+    return {
+    "session_id": session_id,
+    "question": question,
+    "difficulty": data.difficulty,
+    "question_number": 1
+}
 
 @app.post("/roadmap/save")
 def save_roadmap(
@@ -852,13 +866,63 @@ async def upload_resume(
     return {"resume": f"/resume-files/{filename}"}
 
 @app.post("/interview/submit")
-def submit_answer(data: InterviewAnswer):
+async def submit_answer(
+    session_id: str = Form(...),
+    answer: str = Form(...),
+    video: UploadFile = File(None)
+):
 
-    result = evaluate_answer(
-        data.question,
-        data.answer
+    if session_id not in INTERVIEW_SESSIONS:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = INTERVIEW_SESSIONS[session_id]
+
+    question = session["questions"][-1]
+
+    # ---------------- AI evaluation ----------------
+    result = evaluate_answer(question, answer)
+
+    analysis = result["analysis"]
+    score = result["score"]
+
+    difficulty = session["difficulty"]
+
+    current_difficulty = session["difficulty"]
+
+    # calculate difficulty for NEXT question
+    next_difficulty = current_difficulty
+
+    if score > 80:
+        next_difficulty = "Hard"
+    elif score < 40:
+        next_difficulty = "Easy"
+    else:
+        next_difficulty = "Medium"
+    # ---------------- Video Analysis ----------------
+    video_feedback = None
+
+    if video:
+        contents = await video.read()
+
+        video_feedback = analyze_video(contents)
+
+    # store answer
+    session["answers"].append(answer)
+
+    # ---------------- Next Question ----------------
+
+    next_question = generate_question(
+        role=session["role"],
+        difficulty=next_difficulty
     )
+    session["difficulty"] = next_difficulty
+    session["questions"].append(next_question)
+    session["question_number"] += 1
 
     return {
-        "analysis": result
-    }
+    "analysis": analysis,
+    "video_feedback": video_feedback,
+    "next_question": next_question,
+    "difficulty": next_difficulty,
+    "question_number": session["question_number"]
+}
