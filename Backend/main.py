@@ -685,7 +685,8 @@ async def analyze_uploaded_resume(
                     SET market_readiness = ?,
                         skills = ?,
                         projects = ?,
-                        certifications = ?
+                        certifications = ?,
+                        target_role = ?
                     WHERE email = ?
                     """,
                     (
@@ -693,6 +694,7 @@ async def analyze_uploaded_resume(
                         json.dumps(report["skills"]),
                         json.dumps(report["projects"]),
                         json.dumps(report["certifications"]),
+                        target_job,
                         email
                     )
                 )

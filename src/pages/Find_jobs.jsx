@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Sidebar from "../components/sidebar";
+import axios from "axios";
 
 const FindJobs = () => {
   const location = useLocation();
@@ -34,22 +35,39 @@ const FindJobs = () => {
 useEffect(() => {
 
   const fromResume = location.state?.trigger === "resume";
-  const jobTitle = location.state?.jobTitle;
 
-  if (fromResume && jobTitle) {
+  if (fromResume) {
 
-    setSearchQuery((prev) => ({
-      ...prev,
-      query: jobTitle
-    }));
+    const token = localStorage.getItem("token");
 
-    autoSearch(jobTitle);
+    axios.get("http://127.0.0.1:8000/me", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => {
+
+      const role = res.data.target_role;
+
+      if (!role) return;
+
+      // auto fill search box
+      setSearchQuery(prev => ({
+        ...prev,
+        query: role
+      }));
+
+      // auto run search
+      autoSearch(role);
+
+    })
+    .catch(err => console.error(err));
 
     // clear navigation state
     window.history.replaceState({}, document.title);
 
   } else {
+
     fetchJobs();
+
   }
 
 }, []);

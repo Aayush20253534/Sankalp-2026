@@ -25,9 +25,7 @@ const SkillRoadmap = () => {
   const [loading, setLoading] = useState(false);
   const [showRoadmap, setShowRoadmap] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
-  const [role, setRole] = useState(
-  location.state?.role || localStorage.getItem("target_job") || ""
-);
+  const [role, setRole] = useState("");
   const [roadmapData, setRoadmapData] = useState([]);
   const [user, setUser] = useState(null);
   const roadmapRef = useRef(null);
@@ -44,10 +42,25 @@ const SkillRoadmap = () => {
   const [experience, setExperience] = useState("Beginner");
   const [learningStyle, setLearningStyle] = useState("Project Based");;
   useEffect(() => {
-    if (location.state?.role) {
-      setRole(location.state.role);
-    }
-  }, [location.state])
+
+  const token = localStorage.getItem("token");
+
+  if (location.state?.trigger === "resume") {
+
+    axios.get("http://127.0.0.1:8000/me", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => {
+
+      if (res.data.target_role) {
+        setRole(res.data.target_role);
+      }
+
+    });
+
+  }
+
+}, [location.state]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -76,6 +89,7 @@ axios.get("http://127.0.0.1:8000/roadmap/user", {
   }, [navigate]);
 
 useEffect(() => {
+
   if (
     location.state?.trigger === "resume" &&
     role.trim() !== "" &&
@@ -83,7 +97,8 @@ useEffect(() => {
   ) {
     handleGenerate();
   }
-}, [location.state]);
+
+}, [role]);
 
   const handleStatusChange = (stageId, skillName, newStatus) => {
 
