@@ -229,8 +229,8 @@ CREATE TABLE IF NOT EXISTS users (
     projects TEXT,
     certifications TEXT,
     resume TEXT,
+    resume_analysis TEXT,
     roadmap TEXT,
-
     created_at TEXT,
     last_active_date TEXT,
     learning_streak INTEGER DEFAULT 1
@@ -395,6 +395,7 @@ def login(data: LoginRequest):
 )
 
     user = cursor.fetchone()
+    
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -483,6 +484,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    resume_analysis = json.loads(user["resume_analysis"]) if user["resume_analysis"] else None
         
     roadmap = json.loads(user["roadmap"]) if user["roadmap"] else []
     completed_modules = 0
@@ -508,6 +510,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     "profile_image": user["profile_image"],
     "cover_image": user["cover_image"],
     "resume": user["resume"],
+    "resume_analysis": resume_analysis,
     "professional_links": json.loads(user["professional_links"]) if user["professional_links"] else [],
     "market_readiness": user["market_readiness"],
     "skills": json.loads(user["skills"]) if user["skills"] else [],
@@ -680,24 +683,26 @@ async def analyze_uploaded_resume(
         cursor = conn.cursor()
 
         cursor.execute(
-                    """
-                    UPDATE users
-                    SET market_readiness = ?,
-                        skills = ?,
-                        projects = ?,
-                        certifications = ?,
-                        target_role = ?
-                    WHERE email = ?
-                    """,
-                    (
-                        report["market_readiness"],
-                        json.dumps(report["skills"]),
-                        json.dumps(report["projects"]),
-                        json.dumps(report["certifications"]),
-                        target_job,
-                        email
-                    )
-                )
+"""
+UPDATE users
+SET market_readiness = ?,
+    skills = ?,
+    projects = ?,
+    certifications = ?,
+    target_role = ?,
+    resume_analysis = ?
+WHERE email = ?
+""",
+(
+    report["market_readiness"],
+    json.dumps(report["skills"]),
+    json.dumps(report["projects"]),
+    json.dumps(report["certifications"]),
+    target_job,
+    json.dumps(report),
+    email
+)
+)
 
         conn.commit()
         conn.close()

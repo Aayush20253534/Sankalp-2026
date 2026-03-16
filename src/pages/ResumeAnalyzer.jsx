@@ -28,24 +28,8 @@ export default function ResumeDashboard() {
   const [file, setFile] = useState(null);
   const [targetJob, setTargetJob] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
-  const [data, setData] = useState(() => {
-    const saved = localStorage.getItem("resume_analysis_data");
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [score, setScore] = useState(() => {
-    const saved = localStorage.getItem("resume_analysis_score");
-    return saved ? parseInt(saved) : 0;
-  });
-
-  useEffect(() => {
-    if (data) {
-      localStorage.setItem("resume_analysis_data", JSON.stringify(data));
-      localStorage.setItem("resume_analysis_score", score.toString());
-    } else {
-      localStorage.removeItem("resume_analysis_data");
-      localStorage.removeItem("resume_analysis_score");
-    }
-  }, [data, score]);
+  const [data, setData] = useState(null);
+  const [score, setScore] = useState(0);
 
   const onUpload = async () => {
     if (!file) return;
@@ -81,10 +65,37 @@ export default function ResumeDashboard() {
     setScore(0);
     setFile(null);
     setTargetJob("");
-    localStorage.removeItem("resume_analysis_data");
-    localStorage.removeItem("resume_analysis_score");
   };
+useEffect(() => {
 
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  axios.get("http://localhost:8000/me", {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  .then(res => {
+
+    if (res.data.resume_analysis) {
+
+      const analysis = res.data.resume_analysis;
+
+      setData({
+        market_readiness: analysis.market_readiness,
+        strengths: analysis.key_strengths,
+        weaknesses: analysis.critical_gaps,
+        missing_keywords: analysis.missing_keywords,
+        weak_line: analysis.weakest_line.weak_line,
+        suggestions: analysis.weakest_line.improved_version
+      });
+
+      setScore(analysis.score);
+    }
+
+  })
+  .catch(err => console.error(err));
+
+}, []);
   const getStatusStyles = (status) => {
     const s = status?.toLowerCase() || "";
     if (s.includes("high") || s.includes("strong")) {
