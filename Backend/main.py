@@ -976,6 +976,93 @@ async def upload_resume(
 
     return {"resume": f"/resume-files/{filename}"}
 
+@app.get("/api/leaderboard")
+def leaderboard():
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT 
+            id,
+            name,
+            current_role,
+            skills,
+            projects,
+            roadmap
+        FROM users
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    users = []
+    skill_counter = {}
+
+    for r in rows:
+
+        skills = json.loads(r["skills"]) if r["skills"] else []
+        projects = json.loads(r["projects"]) if r["projects"] else []
+        roadmap = json.loads(r["roadmap"]) if r["roadmap"] else []
+
+        # count completed modules
+        modules_completed = 0
+        for stage in roadmap:
+            for skill in stage.get("skills", []):
+                if skill.get("status") == "Completed":
+                    modules_completed += 1
+
+        # trending skill counter
+        for skill in skills:
+            skill_counter[skill] = skill_counter.get(skill, 0) + 1
+
+        users.append({
+            "id": r["id"],
+            "name": r["name"],
+            "role": r["current_role"] or "Developer",
+            "location": "Global",
+
+            "projectsBuilt": len(projects),
+            "modulesCompleted": modules_completed,
+            "skillsMastered": len(skills),
+
+            "badges": ["Verified"]
+        })
+
+    trending_skill = ""
+
+    if skill_counter:
+        trending_skill = max(skill_counter, key=skill_counter.get)
+
+    return {
+        "totalUsers": len(users),
+        "trendingSkill": trending_skill,
+        "users": users
+    }
+@app.get("/user/{user_id}")
+def get_user_profile(user_id: int):
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
+    user = cursor.fetchone()
+
+    conn.close()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user = dict(user)
+
+    # convert JSON fields properly
+    user["skills"] = json.loads(user["skills"]) if user["skills"] else []
+    user["projects"] = json.loads(user["projects"]) if user["projects"] else []
+    user["certifications"] = json.loads(user["certifications"]) if user["certifications"] else []
+    user["professional_links"] = json.loads(user["professional_links"]) if user["professional_links"] else []
+
+    return user
+
 @app.post("/interview/submit")
 async def submit_answer(
     session_id: str = Form(...),

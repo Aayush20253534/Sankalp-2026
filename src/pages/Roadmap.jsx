@@ -220,7 +220,7 @@ useEffect(() => {
             difficulty: c.toughness,
             time: c.learning_time,
             status: "Not Started",
-            url: c.learning_link
+            url: c.learning_link || `https://www.youtube.com/results?search_query=${encodeURIComponent(c.title)}`
           }))
         },
         {
@@ -233,7 +233,7 @@ useEffect(() => {
             difficulty: c.toughness,
             time: c.learning_time,
             status: "Not Started",
-            url: c.learning_link
+            url: c.learning_link || `https://www.youtube.com/results?search_query=${encodeURIComponent(c.title)}`
           }))
         },
         {
@@ -246,7 +246,7 @@ useEffect(() => {
             difficulty: c.toughness,
             time: c.learning_time,
             status: "Not Started",
-            url: c.learning_link
+            url: c.learning_link || `https://www.youtube.com/results?search_query=${encodeURIComponent(c.title)}`
           }))
         }
       ];

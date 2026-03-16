@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Sidebar from '../components/sidebar';
 import axios from "axios";
-
+import { useParams } from "react-router-dom";
 
 const GlassCard = ({ children, className = "" }) => (
   <motion.div
@@ -116,7 +116,7 @@ const StatsPanel = ({ projects, skills, certifications, modulesCompleted, module
   );
 };
 
-const ProfessionalLinks = ({ links, setLinks, linkedin, setLinkedin }) => {
+const ProfessionalLinks = ({ links, setLinks, linkedin, setLinkedin, isOwnProfile }) => {
   const [editing, setEditing] = useState({
     linkedin: false,
     portfolio: false
@@ -136,6 +136,7 @@ const updateLink = (platform, value) => {
   });
 };
 
+
   const getUrl = (platform) => {
     const found = links.find(l => l.platform === platform);
     return found ? found.url : "";
@@ -154,7 +155,7 @@ const updateLink = (platform, value) => {
           </div>
 
           <input
-            disabled={!editing.linkedin}
+          disabled={!editing.linkedin || !isOwnProfile}
             value={linkedin}
             onChange={(e) => setLinkedin(e.target.value)}
             placeholder="LinkedIn Profile URL"
@@ -162,18 +163,20 @@ const updateLink = (platform, value) => {
               } rounded-xl py-2.5 pl-10 pr-12 text-gray-300 disabled:opacity-60`}
           />
 
-          <button
-            onClick={() =>
-              setEditing(prev => ({ ...prev, linkedin: !prev.linkedin }))
-            }
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/10 rounded-lg text-gray-400"
-          >
-            {editing.linkedin ? (
-              <Check size={16} className="text-green-400" />
-            ) : (
-              <Edit2 size={14} />
-            )}
-          </button>
+         {isOwnProfile && (
+  <button
+    onClick={() =>
+      setEditing(prev => ({ ...prev, linkedin: !prev.linkedin }))
+    }
+    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/10 rounded-lg text-gray-400"
+  >
+    {editing.linkedin ? (
+      <Check size={16} className="text-green-400" />
+    ) : (
+      <Edit2 size={14} />
+    )}
+  </button>
+)}
         </div>
 
         {/* Portfolio */}
@@ -183,7 +186,7 @@ const updateLink = (platform, value) => {
           </div>
 
           <input
-            disabled={!editing.portfolio}
+           disabled={!editing.portfolio || !isOwnProfile}
             value={getUrl("portfolio")}
             onChange={(e) => updateLink("portfolio", e.target.value)}
             placeholder="Portfolio Website URL"
@@ -191,18 +194,20 @@ const updateLink = (platform, value) => {
               } rounded-xl py-2.5 pl-10 pr-12 text-gray-300 disabled:opacity-60`}
           />
 
-          <button
-            onClick={() =>
-              setEditing(prev => ({ ...prev, portfolio: !prev.portfolio }))
-            }
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/10 rounded-lg text-gray-400"
-          >
-            {editing.portfolio ? (
-              <Check size={16} className="text-green-400" />
-            ) : (
-              <Edit2 size={14} />
-            )}
-          </button>
+          {isOwnProfile && (
+  <button
+    onClick={() =>
+      setEditing(prev => ({ ...prev, portfolio: !prev.portfolio }))
+    }
+    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/10 rounded-lg text-gray-400"
+  >
+    {editing.portfolio ? (
+      <Check size={16} className="text-green-400" />
+    ) : (
+      <Edit2 size={14} />
+    )}
+  </button>
+)}
         </div>
 
       </div>
@@ -210,6 +215,8 @@ const updateLink = (platform, value) => {
   );
 };
 const ProfilePage = () => {
+  const { id } = useParams(); 
+  const isOwnProfile = !id;
   const [is2FA, setIs2FA] = useState(true);
   const [user, setUser] = useState(null);
   const [image, setImage] = useState(null);
@@ -231,32 +238,44 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [linkedin, setLinkedin] = useState("");
 
+  const loadUser = (data) => {
+  setUser(data);
+  setName(data.name || "");
+  setUsername(data.username || "");
+  setPhone(data.phone || "");
+  setBio(data.bio || "");
+  setCurrentRole(data.current_role || "");
+  setTargetRole(data.target_role || "");
+  setLinks(Array.isArray(data.professional_links) ? data.professional_links : []);
+  setLinkedin(data.linkedin || "");
+  setImage(data.profile_image || null);
+  setCoverImage(data.cover_image || null);
+  setResume(data.resume || null);
+};
+
   const API_BASE = "http://127.0.0.1:8000";
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
 
+  const token = localStorage.getItem("token");
+
+  // viewing another user's profile
+  if (id) {
+    axios.get(`${API_BASE}/user/${id}`)
+      .then(res => loadUser(res.data))
+      .catch(err => console.error("Error fetching user:", err));
+  }
+
+  // viewing your own profile
+  else if (token) {
     axios.get(`${API_BASE}/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then(res => {
-        const data = res.data;
-        setUser(data);
-        setName(data.name || "");
-        setUsername(data.username || "");
-        setPhone(data.phone || "");
-        setBio(data.bio || "");
-        setCurrentRole(data.current_role || "");
-        setTargetRole(data.target_role || "");
-        setLinks(Array.isArray(data.professional_links) ? data.professional_links : []);
-        setLinkedin(data.linkedin || "");
-        setImage(data.profile_image || null);
-        setCoverImage(data.cover_image || null);
-        setResume(data.resume || null);
-      })
-      .catch(err => console.error("Error fetching user:", err));
-  }, []);
+      .then(res => loadUser(res.data))
+      .catch(err => console.error("Error fetching profile:", err));
+  }
+
+}, [id, API_BASE]);
 
   const saveProfile = async () => {
     const token = localStorage.getItem("token");
@@ -335,14 +354,24 @@ const ProfilePage = () => {
                 />
               )}
 
-              {/* Cover Image Upload Button */}
-              <button
-                onClick={() => coverInputRef.current?.click()}
-                className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-lg text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10"
-              >
-                <Camera size={14} /> Change Cover
-              </button>
-              <input ref={coverInputRef} type="file" className="hidden" onChange={(e) => handleFileChange(e, 'cover')} accept="image/*" />
+             {isOwnProfile && (
+  <>
+    <button
+      onClick={() => coverInputRef.current?.click()}
+      className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-lg text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-all border border-white/10"
+    >
+      <Camera size={14} /> Change Cover
+    </button>
+
+    <input
+      ref={coverInputRef}
+      type="file"
+      className="hidden"
+      onChange={(e) => handleFileChange(e, "cover")}
+      accept="image/*"
+    />
+  </>
+)}
             </div>
 
             <div className="absolute -bottom-16 left-8 flex items-end gap-6">
@@ -360,10 +389,24 @@ const ProfilePage = () => {
                     </span>
                   )}
                 </div>
-                <button onClick={() => profileInputRef.current?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-3xl">
-                  <Camera className="text-white" />
-                </button>
-                <input ref={profileInputRef} type="file" className="hidden" onChange={(e) => handleFileChange(e, 'profile')} accept="image/*" />
+                {isOwnProfile && (
+  <>
+    <button
+      onClick={() => profileInputRef.current?.click()}
+      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-3xl"
+    >
+      <Camera className="text-white" />
+    </button>
+
+    <input
+      ref={profileInputRef}
+      type="file"
+      className="hidden"
+      onChange={(e) => handleFileChange(e, "profile")}
+      accept="image/*"
+    />
+  </>
+)}
               </div>
 
               <div className="mb-4">
@@ -394,8 +437,14 @@ const ProfilePage = () => {
               <GlassCard>
                 <SectionHeader icon={User} title="Personal Information" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                  <EditableInput label="Full Name" value={name} setValue={setName} icon={User} />
-                  <EditableInput label="Username" value={username} setValue={setUsername} icon={User} />
+                  <EditableInput 
+  label="Full Name" 
+  value={name} 
+  setValue={setName} 
+  icon={User}
+  disabled={!isOwnProfile}
+/>
+                  <EditableInput label="Username" value={username} setValue={setUsername} icon={User} disabled={!isOwnProfile} />
                   <EditableInput label="Email Address" value={user?.email || ""} icon={Mail} type="email" disabled={true} />
                   <EditableInput
   label="Phone Number"
@@ -403,13 +452,15 @@ const ProfilePage = () => {
   setValue={setPhone}
   icon={Phone}
   type="tel"
+  disabled={!isOwnProfile}
 />
                 </div>
                 <div className="mt-2">
                   <label className="text-xs font-medium text-gray-400 mb-1.5 block ml-1">Bio / About Me</label>
                   <textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
+  value={bio}
+  disabled={!isOwnProfile}
+  onChange={(e) => setBio(e.target.value)}
                     className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-gray-200 min-h-[100px] focus:border-blue-500/40 outline-none transition-colors"
                   />
                 </div>
@@ -418,11 +469,11 @@ const ProfilePage = () => {
               <GlassCard>
                 <SectionHeader icon={Briefcase} title="Career Profile" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 mb-6">
-                  <EditableInput label="Current Role" value={current_role} setValue={setCurrentRole} icon={Briefcase} />
-                  <EditableInput label="Target Role" value={target_role} setValue={setTargetRole} icon={Target} />
+                  <EditableInput label="Current Role" value={current_role} setValue={setCurrentRole} icon={Briefcase} disabled={!isOwnProfile}/>
+                  <EditableInput label="Target Role" value={target_role} setValue={setTargetRole} icon={Target} disabled={!isOwnProfile}/>
                 </div>
                 <div
-  onClick={() => !resume && resumeInputRef.current?.click()}
+  onClick={() => isOwnProfile && !resume && resumeInputRef.current?.click()}
   className="p-6 border-2 border-dashed border-white/10 rounded-2xl hover:border-blue-500/30 transition-colors group cursor-pointer text-center"
 >
 
@@ -488,6 +539,7 @@ const ProfilePage = () => {
   setLinks={setLinks}
   linkedin={linkedin}
   setLinkedin={setLinkedin}
+  isOwnProfile={isOwnProfile}
 />
 
               <GlassCard>
@@ -509,14 +561,16 @@ const ProfilePage = () => {
         </div>
       </main>
 
-      <div className="fixed bottom-8 right-8 z-50">
-        <button
-          onClick={saveProfile}
-          className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold shadow-2xl shadow-blue-500/20 transform hover:scale-105 transition-all active:scale-95"
-        >
-          Save Changes
-        </button>
-      </div>
+    {isOwnProfile && (
+<div className="fixed bottom-8 right-8 z-50">
+  <button
+    onClick={saveProfile}
+    className="px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold shadow-2xl shadow-blue-500/20 transform hover:scale-105 transition-all active:scale-95"
+  >
+    Save Changes
+  </button>
+</div>
+)}
 
       <style>{`
         ::-webkit-scrollbar { width: 8px; }
