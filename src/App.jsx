@@ -42,6 +42,8 @@ function App() {
 
       <Route path="/platform" element={<PlatformPage />} />
 
+      <Route path="/profile/:id" element={<ProfilePage />} />
+
       <Route
         path="/Dashboard"
         element={
