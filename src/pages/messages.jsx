@@ -14,7 +14,46 @@ const EMOJIS = [
   "😅","🥲","😭","😢","😡",
   "🤔","🤯","🙏","😴","😇"
 ];
+const THEMES = {
+  dark: {
+    name: "Dark",
+    bg: "bg-[#0b141a]",
+    panel: "bg-[#1f2937]",
+    sidebar: "bg-[#050b14]",
+    text: "text-slate-300"
+  },
 
+  ocean: {
+    name: "Ocean",
+    bg: "bg-[#0a192f]",
+    panel: "bg-[#112240]",
+    sidebar: "bg-[#020c1b]",
+    text: "text-blue-200"
+  },
+
+  midnight: {
+    name: "Midnight",
+    bg: "bg-[#020617]",
+    panel: "bg-[#0f172a]",
+    sidebar: "bg-[#020617]",
+    text: "text-indigo-200"
+  },
+
+  crimson: {
+  name: "Crimson",
+  bg: "bg-[#1a0f0f]",
+  panel: "bg-[#2a1515]",
+  sidebar: "bg-[#120909]",
+  text: "text-red-300"
+},
+  neon: {
+    name: "Neon",
+    bg: "bg-black",
+    panel: "bg-[#111827]",
+    sidebar: "bg-black",
+    text: "text-green-400"
+  }
+};
 const formatTime = (ts) => {
   if (!ts) return "";
 
@@ -25,7 +64,8 @@ const formatTime = (ts) => {
     minute: "2-digit",
   });
 };
-const MessageBubble = ({ message, isMe, onDelete, searchQuery }) => {
+
+const MessageBubble = ({ message, isMe, onDelete, searchQuery, theme }) => {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
@@ -40,7 +80,7 @@ const MessageBubble = ({ message, isMe, onDelete, searchQuery }) => {
   className={`relative max-w-[65%] md:max-w-[55%] lg:max-w-[48%] px-4 py-2.5 shadow-sm transition-all duration-200 ${
           isMe
             ? "bg-indigo-600 text-white rounded-2xl rounded-br-sm"
-            : "bg-[#1f2937] text-slate-100 rounded-2xl rounded-bl-sm border border-slate-700/50"
+            : `${theme.panel} ${theme.text} rounded-2xl rounded-bl-sm border border-slate-700/50`
         }`}
       >
         {/* 🔥 TOP RIGHT MENU */}
@@ -49,6 +89,7 @@ const MessageBubble = ({ message, isMe, onDelete, searchQuery }) => {
             onClick={() => setShowMenu(!showMenu)}
             className="p-1 rounded hover:bg-black/10"
           >
+        
             <MoreVertical size={14} />
           </button>
 
@@ -183,6 +224,16 @@ const ContactItem = ({ chat, isActive, onClick, currentUserId }) => (
 // --- Main Component ---
 
 export default function ElevateAIChat() {
+
+    const [theme, setTheme] = useState(() => {
+  return localStorage.getItem("chat-theme") || "dark";
+});
+
+useEffect(() => {
+  localStorage.setItem("chat-theme", theme);
+}, [theme]);
+
+const currentTheme = THEMES[theme] || THEMES.dark;
   const { receiver_id } = useParams();
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
@@ -391,7 +442,7 @@ const filteredMessages = messages.filter((msg) => {
 });
 
   return (
-    <div className="flex h-screen bg-[#0b141a] text-slate-300 overflow-hidden font-sans">
+    <div className={`flex h-screen transition-colors duration-300 ${currentTheme.bg} ${currentTheme.text}`}>
       <Sidebar />
 
       {/* Main Container */}
@@ -401,8 +452,9 @@ const filteredMessages = messages.filter((msg) => {
       >
         
         {/* LEFT COLUMN: Inbox List (Always visible on desktop) */}
-        <aside className={`w-full md:w-[350px] lg:w-[400px] flex flex-col border-r border-slate-800/60 bg-[#050b14] ${receiver_id ? 'hidden md:flex' : 'flex'}`}>
-          <header className="p-4 flex flex-col gap-4 bg-[#0b141a]">
+        <aside className={`w-full md:w-[350px] lg:w-[400px] flex flex-col border-r border-slate-800/60 ${currentTheme.sidebar} ${receiver_id ? 'hidden md:flex' : 'flex'}`}>
+          <header className={`p-4 flex flex-col gap-4 ${currentTheme.bg}`}>
+            
             <div className="flex justify-between items-center">
               <h1 className="text-xl font-bold text-white">Chats</h1>
               <div className="flex gap-2">
@@ -416,7 +468,7 @@ const filteredMessages = messages.filter((msg) => {
   value={searchQuery}
   onChange={(e) => setSearchQuery(e.target.value)}
   placeholder="Search messages..."
-                className="w-full bg-[#1f2937] border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-blue-500 placeholder:text-slate-500"
+               className={`w-full ${currentTheme.panel} border-none rounded-lg py-2 pl-10 pr-4 text-sm`}
               />
             </div>
           </header>
@@ -435,11 +487,11 @@ const filteredMessages = messages.filter((msg) => {
         </aside>
 
         {/* RIGHT COLUMN: Chat Window */}
-        <main className={`flex-1 flex flex-col bg-[#0b141a] relative ${!receiver_id ? 'hidden md:flex items-center justify-center' : 'flex'}`}>
+        <main className={`flex-1 flex flex-col ${currentTheme.bg} relative ${!receiver_id ? 'hidden md:flex items-center justify-center' : 'flex'}`}>
           {receiver_id ? (
             <>
               {/* Chat Header */}
-              <header className="h-16 flex items-center justify-between px-4 bg-[#1f2937]/50 backdrop-blur-md border-b border-slate-800/50 z-30">
+              <header className={`h-16 flex items-center justify-between px-4 ${currentTheme.panel} bg-opacity-50 backdrop-blur-md border-b border-slate-800/50 z-30`}>
                 <div className="flex items-center gap-3">
                   <button onClick={() => navigate('/messages')} className="md:hidden p-1 text-slate-400"><ChevronLeft /></button>
                   <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
@@ -479,12 +531,24 @@ const filteredMessages = messages.filter((msg) => {
     </button>
   )}
 
+      <select
+  value={theme}
+  onChange={(e) => setTheme(e.target.value)}
+  className="bg-[#111827] text-white text-xs px-2 py-1 rounded border border-slate-600"
+>
+  {Object.entries(THEMES).map(([key, t]) => (
+    <option key={key} value={key}>
+      {t.name}
+    </option>
+  ))}
+</select>
+
   <MoreVertical size={18} className="cursor-pointer text-slate-400 hover:text-white" />
 </div>
               </header>
 
               {/* Message Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-[#0b141a] bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-blend-soft-light bg-repeat">
+              <div className={`flex-1 overflow-y-auto p-4 space-y-1 ${currentTheme.bg} bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-blend-soft-light bg-repeat`}>
                 <AnimatePresence initial={false}>
                   {filteredMessages.map((msg) => (
                    <MessageBubble 
@@ -492,6 +556,7 @@ const filteredMessages = messages.filter((msg) => {
   isMe={msg.sender_id === currentUserId}
   onDelete={handleDelete}
   searchQuery={searchQuery}
+  theme={currentTheme}
 />
                   ))}
                 </AnimatePresence>
@@ -499,7 +564,7 @@ const filteredMessages = messages.filter((msg) => {
               </div>
 
               {/* Input Area */}
-              <footer className="p-3 bg-[#1f2937]/30 border-t border-slate-800/50">
+              <footer className={`p-3 ${currentTheme.panel}/30 border-t border-slate-800/50`}>
                 <form onSubmit={handleSend} className="max-w-6xl mx-auto flex items-center gap-2">
                     <input
   id="fileInput"
