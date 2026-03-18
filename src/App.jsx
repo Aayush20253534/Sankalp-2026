@@ -2,7 +2,7 @@ import React from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import LandingPage from "./pages/landingpage";
-import Login from "./pages/Login";
+import Login from "./pages/login";
 import Dashboard from "./pages/Dashboard";
 import ResumeAnalyzer from "./pages/ResumeAnalyzer";
 import Interview from "./pages/Interview";
@@ -15,6 +15,7 @@ import AboutPage from "./components/About";
 import LegalPage from "./components/Policy";
 import PlatformPage from "./components/Platform";
 import ElevateAIChat from "./pages/messages";
+import ElevateFeed from "./pages/feed";
 
 const ProtectedRoute = ({ children }) => {
   const user = localStorage.getItem("user");
@@ -43,6 +44,7 @@ function App() {
       <Route path="/platform" element={<PlatformPage />} />
 
       <Route path="/profile/:id" element={<ProfilePage />} />
+
 
       <Route
         path="/Dashboard"
@@ -124,6 +126,14 @@ function App() {
           </ProtectedRoute>
         }
       /> 
+      <Route
+  path="/feed"
+  element={
+    <ProtectedRoute>
+      <ElevateFeed />
+    </ProtectedRoute>
+  }
+/>
       <Route
   path="/chat/:receiver_id"
   element={

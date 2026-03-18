@@ -21,34 +21,43 @@ from dotenv import load_dotenv
 from pydantic import Field
 from fastapi import Form
 from fastapi.staticfiles import StaticFiles
-
+import uvicorn
 from interview_ai import generate_question, evaluate_answer, analyze_video
 from models import InterviewStart, InterviewAnswer
 
 from chatbot_service import ask_bot
 from web_scraping import LinkedInScraper, NaukriScraper, SerpApiScraper
 
+# -------- CREATE DIRECTORIES FIRST -------- #
+UPLOAD_DIR = "uploads"
+PROFILE_DIR = "profile_images"
+RESUME_DIR = "resume"
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(PROFILE_DIR, exist_ok=True)
+os.makedirs(RESUME_DIR, exist_ok=True)
+
+# -------- INIT APP -------- #
 app = FastAPI()
 roadmap_engine = Roadmap()
-app.mount("/images", StaticFiles(directory="profile_images"), name="images")
-app.mount("/resume-files", StaticFiles(directory="resume"), name="resume-files")
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# -------- MOUNT AFTER CREATION -------- #
+app.mount("/images", StaticFiles(directory=PROFILE_DIR), name="images")
+app.mount("/resume-files", StaticFiles(directory=RESUME_DIR), name="resume-files")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 load_dotenv()
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if not GOOGLE_API_KEY:
+    raise Exception("GOOGLE_API_KEY not set")
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
-    api_key=os.getenv("GOOGLE_API_KEY"),
+    api_key=GOOGLE_API_KEY,
     temperature=0
 )
-
-PROFILE_DIR = "profile_images"
-os.makedirs(PROFILE_DIR, exist_ok=True)
-RESUME_DIR = "resume"
-os.makedirs(RESUME_DIR, exist_ok=True)
-
 
 class WeakLineFeedback(BaseModel):
     weak_line: str = Field(description="The weakest or poorly written line from the resume")
@@ -56,7 +65,13 @@ class WeakLineFeedback(BaseModel):
 
 class MarketReadiness(BaseModel):
     score:int = Field(description="Percentage Readiness of User")
-    market_readiness:Literal['Low', 'Medium', 'High'] = Field(description="User's Overall Job Market Readiness")
+    market_readiness: Literal[
+    'Very weak resume',
+    'Early stage candidate',
+    'Moderate readiness',
+    'Strong candidate',
+    'Highly competitive candidate'
+    ] = Field(description="User's Overall Job Market Readiness")
     key_strengths: List[str] = Field(description="Top professional strengths found")
     critical_gaps: List[str] = Field(description="Major missing qualifications")
     missing_keywords: List[str] = Field(description="Specific technical terms missing")
@@ -202,7 +217,7 @@ You will be provided with the user's resume content. Analyze it and produce the 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -264,7 +279,53 @@ def init_db():
     )
     """)
 
-    # 🔥 SAFETY: Add columns if DB already exists
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS feed_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_email TEXT,
+    content TEXT,
+    type TEXT,
+    tags TEXT,
+    image TEXT,
+    created_at TEXT
+)
+    """)
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS post_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER,
+    user_email TEXT,
+    UNIQUE(post_id, user_email)
+)
+""")
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS post_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER,
+    user_email TEXT,
+    comment TEXT,
+    created_at TEXT
+)
+""")
+    cursor.execute("""
+ CREATE TABLE IF NOT EXISTS friend_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER,
+    receiver_id INTEGER,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT
+)
+""")
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS profile_views_log (
+    viewer_id INTEGER,
+    viewed_id INTEGER,
+    viewed_at TEXT
+)
+""")
+   
     try:
         cursor.execute("ALTER TABLE direct_messages ADD COLUMN deleted_for_sender INTEGER DEFAULT 0")
     except:
@@ -286,6 +347,14 @@ def init_db():
         cursor.execute("ALTER TABLE direct_messages ADD COLUMN file_name TEXT")
     except:
         pass
+    try:
+        cursor.execute("ALTER TABLE feed_posts ADD COLUMN image TEXT")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN profile_views INTEGER DEFAULT 0")
+    except:
+       pass
 
     conn.commit()
     conn.close()
@@ -421,7 +490,130 @@ def signup(data: SignupRequest):
 
     return {"message": "User created"}
 
+@app.post("/feed/like/{post_id}")
+def like_post(post_id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
 
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 🔍 check if already liked
+    cursor.execute(
+        "SELECT * FROM post_likes WHERE post_id=? AND user_email=?",
+        (post_id, email)
+    )
+    existing = cursor.fetchone()
+
+    if existing:
+        # ❌ unlike
+        cursor.execute(
+            "DELETE FROM post_likes WHERE post_id=? AND user_email=?",
+            (post_id, email)
+        )
+        liked = False
+    else:
+        # ❤️ like
+        cursor.execute(
+            "INSERT INTO post_likes (post_id, user_email) VALUES (?, ?)",
+            (post_id, email)
+        )
+        liked = True
+
+    # 🔢 get updated like count
+    cursor.execute(
+        "SELECT COUNT(*) FROM post_likes WHERE post_id=?",
+        (post_id,)
+    )
+    likes = cursor.fetchone()[0]
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "liked": liked,
+        "likes": likes
+    }
+
+class AddComment(BaseModel):
+    comment: str
+
+@app.post("/feed/comment/{post_id}")
+def add_comment(post_id: int, data: AddComment, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO post_comments (post_id, user_email, comment, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (post_id, email, data.comment, datetime.utcnow().isoformat()))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Comment added"}
+
+@app.delete("/feed/comment/{comment_id}")
+def delete_comment(comment_id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # check ownership
+    cursor.execute(
+        "SELECT user_email FROM post_comments WHERE id=?",
+        (comment_id,)
+    )
+    comment = cursor.fetchone()
+
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    if comment["user_email"] != email:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    cursor.execute(
+        "DELETE FROM post_comments WHERE id=?",
+        (comment_id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Comment deleted"}
+@app.delete("/feed/post/{post_id}")
+def delete_post(post_id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # check ownership
+    cursor.execute(
+        "SELECT user_email FROM feed_posts WHERE id=?",
+        (post_id,)
+    )
+    post = cursor.fetchone()
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if post["user_email"] != email:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # delete related data first (IMPORTANT)
+    cursor.execute("DELETE FROM post_likes WHERE post_id=?", (post_id,))
+    cursor.execute("DELETE FROM post_comments WHERE post_id=?", (post_id,))
+
+    # delete post
+    cursor.execute("DELETE FROM feed_posts WHERE id=?", (post_id,))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Post deleted"}
 @app.post("/login")
 def login(data: LoginRequest):
 
@@ -539,6 +731,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     milestone = get_next_milestone(roadmap)
 
     return {
+    "id": user["id"],
     "name": user["name"],
     "username": user["username"],
     "email": user["email"],
@@ -563,6 +756,49 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     "learning_streak": user["learning_streak"]
 }
 
+@app.delete("/messages/conversation/{user_id}")
+def delete_conversation(
+    user_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 🔍 current user
+    cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+    current = cursor.fetchone()
+
+    if not current:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    current_user_id = current["id"]
+
+    # 🧠 mark all messages as deleted for current user
+    cursor.execute("""
+        UPDATE direct_messages
+        SET 
+            deleted_for_sender = CASE 
+                WHEN sender_id = ? THEN 1 ELSE deleted_for_sender 
+            END,
+            deleted_for_receiver = CASE 
+                WHEN receiver_id = ? THEN 1 ELSE deleted_for_receiver 
+            END
+        WHERE 
+            (sender_id=? AND receiver_id=?)
+            OR
+            (sender_id=? AND receiver_id=?)
+    """, (
+        current_user_id, current_user_id,
+        current_user_id, user_id,
+        user_id, current_user_id
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Conversation deleted"}
 @app.post("/profile/update")
 def update_profile(
     data: ProfileUpdate,
@@ -669,8 +905,6 @@ async def upload_cover_image(
 
 # ---------------- FILE UPLOAD ---------------- #
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.get("/roadmap/user")
 def get_user_roadmap(
@@ -1008,7 +1242,7 @@ async def upload_resume(
 
     cursor.execute(
         "UPDATE users SET resume=? WHERE email=?",
-        (f"/resume/{filename}", email)
+        (f"/resume-files/{filename}", email)
     )
 
     conn.commit()
@@ -1017,11 +1251,19 @@ async def upload_resume(
     return {"resume": f"/resume-files/{filename}"}
 
 @app.get("/api/leaderboard")
-def leaderboard():
+def leaderboard(credentials: HTTPAuthorizationCredentials = Depends(security)):
+
+    email = verify_token(credentials.credentials)
 
     conn = get_db()
     cursor = conn.cursor()
 
+    # 🔍 current user id
+    cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+    current_user = cursor.fetchone()
+    current_user_id = current_user["id"]
+
+    # 🔍 fetch all users
     cursor.execute("""
         SELECT 
             id,
@@ -1029,12 +1271,30 @@ def leaderboard():
             current_role,
             skills,
             projects,
-            roadmap
+            roadmap,
+            profile_image,
+            profile_views
         FROM users
     """)
-
     rows = cursor.fetchall()
+
+    # 🔍 fetch all friendships
+    cursor.execute("""
+        SELECT sender_id, receiver_id 
+        FROM friend_requests 
+        WHERE status='accepted'
+    """)
+    friendships = cursor.fetchall()
+
     conn.close()
+
+    # 🔥 build friend set
+    friend_set = set()
+    for f in friendships:
+        if f["sender_id"] == current_user_id:
+            friend_set.add(f["receiver_id"])
+        if f["receiver_id"] == current_user_id:
+            friend_set.add(f["sender_id"])
 
     users = []
     skill_counter = {}
@@ -1045,14 +1305,10 @@ def leaderboard():
         projects = json.loads(r["projects"]) if r["projects"] else []
         roadmap = json.loads(r["roadmap"]) if r["roadmap"] else []
 
-        # count completed modules
-        modules_completed = 0
-        for stage in roadmap:
-            for skill in stage.get("skills", []):
-                if skill.get("status") == "Completed":
-                    modules_completed += 1
+        modules_completed = sum(
+            1 for stage in roadmap for s in stage.get("skills", []) if s.get("status") == "Completed"
+        )
 
-        # trending skill counter
         for skill in skills:
             skill_counter[skill] = skill_counter.get(skill, 0) + 1
 
@@ -1061,18 +1317,20 @@ def leaderboard():
             "name": r["name"],
             "role": r["current_role"] or "Developer",
             "location": "Global",
+            "profile_image": r["profile_image"],
 
             "projectsBuilt": len(projects),
             "modulesCompleted": modules_completed,
             "skillsMastered": len(skills),
+            "profileViews": r["profile_views"] if "profile_views" in r.keys() else 0,
 
-            "badges": ["Verified"]
+            "badges": ["Verified"],
+
+            # 🔥 NEW FIELD
+            "isFriend": r["id"] in friend_set
         })
 
-    trending_skill = ""
-
-    if skill_counter:
-        trending_skill = max(skill_counter, key=skill_counter.get)
+    trending_skill = max(skill_counter, key=skill_counter.get) if skill_counter else ""
 
     return {
         "totalUsers": len(users),
@@ -1080,29 +1338,79 @@ def leaderboard():
         "users": users
     }
 @app.get("/user/{user_id}")
-def get_user_profile(user_id: int):
+def get_user_profile(
+    user_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    email = verify_token(credentials.credentials)
 
     conn = get_db()
     cursor = conn.cursor()
 
+    # 🔍 get current user id
+    cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+    current = cursor.fetchone()
+
+    if not current:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    current_user_id = current["id"]
+
+    # 🔍 fetch target user
     cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
     user = cursor.fetchone()
-
-    conn.close()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # 👀 PROFILE VIEW LOGIC (ANTI-SPAM)
+    if current_user_id != user_id:
+
+        cursor.execute("""
+            SELECT viewed_at FROM profile_views_log
+            WHERE viewer_id=? AND viewed_id=?
+            ORDER BY viewed_at DESC LIMIT 1
+        """, (current_user_id, user_id))
+
+        last = cursor.fetchone()
+        allow = True
+
+        if last:
+            last_time = datetime.fromisoformat(last["viewed_at"])
+            if (datetime.utcnow() - last_time).total_seconds() < 600:
+                allow = False
+
+        if allow:
+            # 🔥 increment view
+            cursor.execute("""
+                UPDATE users 
+                SET profile_views = COALESCE(profile_views, 0) + 1 
+                WHERE id=?
+            """, (user_id,))
+
+            # 🧾 log view
+            cursor.execute("""
+                INSERT INTO profile_views_log (viewer_id, viewed_id, viewed_at)
+                VALUES (?, ?, ?)
+            """, (
+                current_user_id,
+                user_id,
+                datetime.utcnow().isoformat()
+            ))
+
+            conn.commit()
+
+    conn.close()
+
     user = dict(user)
 
-    # convert JSON fields properly
+    # JSON parsing
     user["skills"] = json.loads(user["skills"]) if user["skills"] else []
     user["projects"] = json.loads(user["projects"]) if user["projects"] else []
     user["certifications"] = json.loads(user["certifications"]) if user["certifications"] else []
     user["professional_links"] = json.loads(user["professional_links"]) if user["professional_links"] else []
 
     return user
-
 class SendMessage(BaseModel):
     receiver_id: int
     message: str
@@ -1128,7 +1436,7 @@ async def send_message(
 
     sender_id = sender["id"]
 
-    # 🔍 Check receiver exists ✅ (your requested part)
+    # 🔍 Check receiver exists
     cursor.execute("SELECT id FROM users WHERE id=?", (receiver_id,))
     receiver = cursor.fetchone()
 
@@ -1139,6 +1447,21 @@ async def send_message(
     if sender_id == receiver_id:
         raise HTTPException(status_code=400, detail="You cannot message yourself")
 
+    # 🔒 🔥 ONLY ALLOW FRIENDS
+    cursor.execute("""
+        SELECT * FROM friend_requests 
+        WHERE 
+        status='accepted' AND
+        (
+            (sender_id=? AND receiver_id=?)
+            OR
+            (sender_id=? AND receiver_id=?)
+        )
+    """, (sender_id, receiver_id, receiver_id, sender_id))
+
+    if not cursor.fetchone():
+        raise HTTPException(status_code=403, detail="You can only message friends")
+
     # 🚫 Prevent empty message + no file
     if not message and not file:
         raise HTTPException(status_code=400, detail="Message or file required")
@@ -1147,9 +1470,10 @@ async def send_message(
     file_type = None
     file_name = None
 
+    # 📎 HANDLE FILE
     if file:
         contents = await file.read()
-        file_name = file.filename 
+        file_name = file.filename
 
         # 📏 File size limit (10MB)
         if len(contents) > 10 * 1024 * 1024:
@@ -1201,7 +1525,284 @@ async def send_message(
     conn.commit()
     conn.close()
 
-    return {"message": "sent"}
+    return {
+        "message": "sent successfully",
+        "data": {
+            "receiver_id": receiver_id,
+            "text": message,
+            "file": file_url
+        }
+    }
+@app.post("/friends/request/{receiver_id}")
+def send_request(receiver_id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+    sender = cursor.fetchone()
+
+    if not sender:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sender_id = sender["id"]
+
+    if sender_id == receiver_id:
+        raise HTTPException(status_code=400, detail="Cannot send request to yourself")
+
+    cursor.execute("""
+SELECT * FROM friend_requests 
+WHERE 
+(
+    (sender_id=? AND receiver_id=?)
+    OR
+    (sender_id=? AND receiver_id=?)
+)
+AND status IN ('pending', 'accepted')
+""", (sender_id, receiver_id, receiver_id, sender_id))
+
+    if cursor.fetchone():
+        raise HTTPException(status_code=400, detail="Request already sent")
+
+    cursor.execute("""
+        INSERT INTO friend_requests (sender_id, receiver_id, created_at)
+        VALUES (?, ?, ?)
+    """, (sender_id, receiver_id, datetime.utcnow().isoformat()))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Request sent"}
+
+@app.get("/friends/requests")
+def get_requests(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+    user = cursor.fetchone()
+    user_id = user["id"]
+
+    cursor.execute("""
+        SELECT fr.id, u.id as sender_id, u.name, u.profile_image
+        FROM friend_requests fr
+        JOIN users u ON fr.sender_id = u.id
+        WHERE fr.receiver_id=? AND fr.status='pending'
+    """, (user_id,))
+
+    requests = cursor.fetchall()
+    conn.close()
+
+    return [dict(r) for r in requests]
+
+@app.post("/friends/respond/{request_id}")
+def respond_request(request_id: int, action: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 🔍 get current user
+    cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+    user = cursor.fetchone()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_id = user["id"]
+
+    # 🔍 get request
+    cursor.execute("""
+        SELECT receiver_id FROM friend_requests WHERE id=?
+    """, (request_id,))
+    req = cursor.fetchone()
+
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # 🚫 ensure only receiver can act
+    if req["receiver_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    status = "accepted" if action == "accept" else "rejected"
+
+    cursor.execute("""
+        UPDATE friend_requests 
+        SET status=? 
+        WHERE id=?
+    """, (status, request_id))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": f"Request {status}"}
+
+@app.get("/stats")
+def get_stats():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+
+    cursor.execute("SELECT projects, skills FROM users")
+    rows = cursor.fetchall()
+
+    total_projects = 0
+    total_skills = 0
+
+    for r in rows:
+        try:
+            projects = json.loads(r["projects"]) if r["projects"] else []
+            total_projects += len(projects)
+        except:
+            pass  # 🛡️ skip broken data safely
+
+        try:
+            skills = json.loads(r["skills"]) if r["skills"] else []
+            total_skills += len(skills)
+        except:
+            pass
+
+    conn.close()
+
+    return {
+        "totalUsers": total_users,
+        "totalProjects": total_projects,
+        "totalSkills": total_skills
+    }
+@app.get("/friends")
+def get_friends(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM users WHERE email=?", (email,))
+    user = cursor.fetchone()
+    user_id = user["id"]
+
+    cursor.execute("""
+        SELECT u.id, u.name, u.profile_image
+        FROM friend_requests fr
+        JOIN users u 
+        ON (u.id = fr.sender_id OR u.id = fr.receiver_id)
+        WHERE 
+            fr.status='accepted'
+            AND (fr.sender_id=? OR fr.receiver_id=?)
+            AND u.id != ?
+    """, (user_id, user_id, user_id))
+
+    friends = cursor.fetchall()
+    conn.close()
+
+    return [dict(f) for f in friends]
+@app.post("/feed/create")
+async def create_post(
+    content: str = Form(""),
+    tags: str = Form("[]"),
+    file: UploadFile = File(None),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    image_path = None
+
+    # 📸 HANDLE IMAGE
+    if file:
+        ext = file.filename.split(".")[-1]
+        filename = f"{uuid.uuid4()}.{ext}"
+        path = os.path.join("uploads", filename)
+
+        contents = await file.read()
+        with open(path, "wb") as f:
+            f.write(contents)
+
+        image_path = f"/uploads/{filename}"
+
+    # 💾 SAVE POST
+    cursor.execute("""
+        INSERT INTO feed_posts (user_email, content, type, tags, image, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        email,
+        content,
+        "POST",
+        tags,
+        image_path,
+        datetime.utcnow().isoformat()
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Post created"}
+@app.get("/feed")
+def get_feed(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = verify_token(credentials.credentials)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT f.*, u.name, u.profile_image
+        FROM feed_posts f
+        JOIN users u ON f.user_email = u.email
+        ORDER BY f.created_at DESC
+    """)
+
+    posts = cursor.fetchall()
+
+    result = []
+
+    for p in posts:
+        # 🔢 total likes
+        cursor.execute(
+            "SELECT COUNT(*) FROM post_likes WHERE post_id=?",
+            (p["id"],)
+        )
+        likes = cursor.fetchone()[0]
+
+        # ❤️ check if current user liked
+        cursor.execute(
+            "SELECT 1 FROM post_likes WHERE post_id=? AND user_email=?",
+            (p["id"], email)
+        )
+        liked = cursor.fetchone() is not None
+
+        # 💬 total comments
+        cursor.execute(
+            "SELECT COUNT(*) FROM post_comments WHERE post_id=?",
+            (p["id"],)
+        )
+        comments = cursor.fetchone()[0]
+
+        result.append({
+            "id": p["id"],
+            "content": p["content"],
+            "image": p["image"],
+            "type": p["type"],
+            "tags": json.loads(p["tags"]) if p["tags"] else [],
+            "created_at": p["created_at"],
+            "likes": likes,
+            "liked": liked, 
+            "comments": comments,
+            "author": {
+                "name": p["name"],
+                "avatar": p["profile_image"] or "👤",
+                "email": p["user_email"]
+            }
+        })
+
+    conn.close()
+
+    return {"posts": result}
 @app.get("/messages/inbox")
 def get_inbox(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
@@ -1234,7 +1835,7 @@ def get_inbox(credentials: HTTPAuthorizationCredentials = Depends(security)):
     for r in rows:
         other_id = r["other_user_id"]
 
-        cursor.execute("SELECT id, name FROM users WHERE id=?", (other_id,))
+        cursor.execute("SELECT id, name, profile_image FROM users WHERE id=?", (other_id,))
         user_data = cursor.fetchone()
 
         cursor.execute("""
@@ -1256,15 +1857,16 @@ def get_inbox(credentials: HTTPAuthorizationCredentials = Depends(security)):
             continue  # 🚨 skip empty chats
 
         conversations.append({
-            "user_id": user_data["id"],
-            "name": user_data["name"],
-            "last_message": (
-    last_msg["message"] 
-    if last_msg["message"] 
-    else f"📎 {last_msg['file_type'] or 'File'}"
-),
-            "last_sender_id": last_msg["sender_id"]
-        })
+    "user_id": user_data["id"],
+    "name": user_data["name"],
+    "profile_image": user_data["profile_image"] or "", 
+    "last_message": (
+        last_msg["message"] 
+        if last_msg["message"] 
+        else f"📎 {last_msg['file_type'] or 'File'}"
+    ),
+    "last_sender_id": last_msg["sender_id"]
+})
 
     conn.close()
     return conversations
@@ -1364,23 +1966,45 @@ def get_messages(user_id: int,
         raise HTTPException(status_code=400, detail="Invalid conversation")
 
     cursor.execute("""
-        SELECT * FROM direct_messages
-        WHERE 
-        (
-            sender_id=? AND receiver_id=? AND deleted_for_sender=0
-        )
-        OR
-        (
-            sender_id=? AND receiver_id=? AND deleted_for_receiver=0
-        )
-        ORDER BY created_at ASC
-    """, (current_user_id, user_id, user_id, current_user_id))
+SELECT 
+    dm.*,
+    u.profile_image,
+    u.name as sender_name
+FROM direct_messages dm
+JOIN users u ON dm.sender_id = u.id
+WHERE 
+(
+    dm.sender_id=? AND dm.receiver_id=? AND dm.deleted_for_sender=0
+)
+OR
+(
+    dm.sender_id=? AND dm.receiver_id=? AND dm.deleted_for_receiver=0
+)
+ORDER BY dm.created_at ASC
+""", (current_user_id, user_id, user_id, current_user_id))
 
     messages = cursor.fetchall()
     conn.close()
 
     return [dict(m) for m in messages]
 
+@app.get("/feed/comments/{post_id}")
+def get_comments(post_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT c.*, u.name, u.profile_image
+        FROM post_comments c
+        JOIN users u ON c.user_email = u.email
+        WHERE c.post_id=?
+        ORDER BY c.created_at DESC
+    """, (post_id,))
+
+    comments = cursor.fetchall()
+    conn.close()
+
+    return {"comments": [dict(c) for c in comments]}
 @app.post("/interview/submit")
 async def submit_answer(
     session_id: str = Form(...),
@@ -1442,3 +2066,9 @@ async def submit_answer(
     "difficulty": next_difficulty,
     "question_number": session["question_number"]
 }
+
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
