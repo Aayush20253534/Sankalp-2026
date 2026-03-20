@@ -1250,8 +1250,10 @@ def search_jobs(data: JobSearchRequest):
         if "naukri" in data.sources:
             naukri = NaukriScraper()
             naukri_jobs = naukri.fetch_jobs(data.query, data.location)
-
-            if isinstance(naukri_jobs, list):
+            
+            if isinstance(naukri_jobs, dict) and "error" in naukri_jobs:
+                print(f"NAUKRI ERROR: {naukri_jobs['error']}") # Look for this in terminal
+            elif isinstance(naukri_jobs, list):
                 for j in naukri_jobs:
                     j["source"] = "Naukri"
                     results.append(j)
